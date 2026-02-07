@@ -238,3 +238,15 @@ header p {
     transform: translateY(0);
 }
 
+/* Footer Styles */
+footer {
+    margin-top: 3rem;
+    text-align: center;
+    color: var(--text-sub);
+    font-size: 0.85rem;
+    border-top: 1px solid var(--border-color);
+    padding-top: 1.5rem;
+    padding-bottom: 1rem;
+}
+
+
