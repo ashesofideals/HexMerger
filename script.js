@@ -107,8 +107,13 @@ class HexFile {
                     lines.push(generateDataLine(startAddr, buffer));
                     buffer = [];
                 }
-                // Write Extended Linear Address
-                lines.push(`:02000004${segment.toString(16).padStart(4, '0').toUpperCase()}${calculateChecksum(0x04, 0x0000, [segment >> 8, segment & 0xFF]).toString(16).padStart(2, '0').toUpperCase()}`);
+                
+                // --- FIX IS HERE: Correct Type 04 Record Generation ---
+                // ByteCount is 0x02, Address is 0x0000, Type is 0x04
+                const segData = [segment >> 8, segment & 0xFF];
+                const segChecksum = calculateChecksum(0x02, 0x0000, 0x04, segData);
+                lines.push(`:02000004${segment.toString(16).padStart(4, '0').toUpperCase()}${segChecksum.toString(16).padStart(2, '0').toUpperCase()}`);
+                
                 currentSegment = segment;
             }
 
@@ -128,16 +133,14 @@ class HexFile {
             
             buffer.push(byte);
 
-            // 3. CRITICAL UPDATE: Force flush if buffer reaches 16 bytes (0x10)
-            // This ensures lines start with :10, except potentially the last line of a block.
+            // 3. Force flush if buffer reaches 16 bytes (0x10)
             if (buffer.length >= 16) {
                 lines.push(generateDataLine(startAddr, buffer));
                 buffer = [];
-                // startAddr will be reset on next iteration when buffer is empty
             }
         }
 
-        // Flush remaining buffer (for lines shorter than 16 bytes)
+        // Flush remaining buffer
         if (buffer.length > 0) {
             lines.push(generateDataLine(startAddr, buffer));
         }
@@ -152,11 +155,22 @@ class HexFile {
     }
 }
 
+// --- FIX IS HERE: Updated function signature to accept 'type' ---
+function calculateChecksum(byteCount, address, type, data) {
+    let sum = byteCount + (address & 0xFF) + ((address >> 8) & 0xFF) + type;
+    for (let b of data) {
+        sum += b;
+    }
+    return ((~sum) + 1) & 0xFF;
+}
+
 function generateDataLine(address, bytes) {
     const byteCount = bytes.length;
     const offset = address & 0xFFFF;
-    const type = 0x00;
-    const checksum = calculateChecksum(byteCount, offset, bytes);
+    const type = 0x00; // Data Record Type
+    
+    // Pass type 0x00 here
+    const checksum = calculateChecksum(byteCount, offset, type, bytes);
     
     let hexStr = `:${byteCount.toString(16).padStart(2,'0').toUpperCase()}${offset.toString(16).padStart(4,'0').toUpperCase()}${type.toString(16).padStart(2,'0').toUpperCase()}`;
     for (let b of bytes) {
@@ -166,13 +180,6 @@ function generateDataLine(address, bytes) {
     return hexStr;
 }
 
-function calculateChecksum(byteCount, address, data) {
-    let sum = byteCount + (address & 0xFF) + ((address >> 8) & 0xFF) + 0x00; // 0x00 is type
-    for (let b of data) {
-        sum += b;
-    }
-    return ((~sum) + 1) & 0xFF;
-}
 
 // --- UI Logic ---
 
